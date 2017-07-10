@@ -91,6 +91,12 @@
       return map;
     }, {});
   }
+  function reduceArrayNode(arr) {
+    return arr.reduce(function (map, item) {
+      map[item.data.product_id] =  item;
+      return map;
+    }, {});
+  }
 
   function generateTree(realData) {
     var data = JSON.parse(JSON.stringify(realData)),
@@ -220,16 +226,18 @@
   }
 
   function drawLinks(links, nodes) {
-    var diagonal = window.d3.svg.diagonal()
-        .projection(function (d) {
-          return [d.y, d.x];
-        }),
-      link,
+    var diagonal = function(d) {
+          return "M" + d.source.y + "," + d.source.x
+              + "C" + (d.source.y + d.target.y) / 2 + "," + d.source.x
+              + " " + (d.source.y + d.target.y) / 2 + "," + d.target.x
+              + " " + d.target.y + "," + d.target.x;
+      };
+      var link,
       nodesMap,
       targets,
       maxTargetsCount;
     //Drawing links for one parent
-    nodesMap = reduceArray(nodes);
+    nodesMap = reduceArrayNode(nodes);
     link = svg.selectAll("path.link")
       .data(links, function (d) {
         return d.target.id;
@@ -259,10 +267,11 @@
 
     //Adding links in case when it is several parents for one node
     function addSpecialParent(position) {
+      console.log('special');
       link.enter().insert("path", "g")
         .attr("d", function (d) {
-          if (d.source.data_targets_id) {
-            targets = d.source.data_targets_id;
+          if (d.source.data.data_targets_id) {
+            targets = d.source.data.data_targets_id;
             var length = targets.length,
               sep = ',',
               newPath = '',
@@ -304,16 +313,16 @@
           }
         })
         .attr("class", function (d) {
-          if (d.source.data_targets_id) {
-            targets = d.source.data_targets_id;
+          if (d.source.data.data_targets_id) {
+            targets = d.source.data.data_targets_id;
             if (position < targets.length) {
-              return renderOptions.classes.linkClass + ' ' + targets[position].type;
+              return renderOptions.classes.linkClass + ' ' + targets[position].type+' dd';
             }
           }
         })
         .attr("marker-end", function (d) {
-          if (d.source.data_targets_id) {
-            targets = d.source.data_targets_id;
+          if (d.source.data.data_targets_id) {
+            targets = d.source.data.data_targets_id;
             if (position < targets.length) {
               return "url(#" + targets[position].type + renderOptions.markerClassEnd + ")";
             }
@@ -338,7 +347,7 @@
       nodesMap,
       isBackRelations;
 
-    tree = window.d3.layout.tree()
+    tree = window.d3.cluster()
       .size([height, width]);
 
     svg = window.d3.select(".graph-container").append("svg")
@@ -362,9 +371,10 @@
       .attr("d", "M0,-5L10,0L0,5");
 
     // Compute the new tree layout.
-    nodes = tree.nodes(root).reverse();
-    links = tree.links(nodes);
-
+      var layout = d3.hierarchy(root);
+      tree(layout);
+      nodes = layout.descendants().reverse();
+      links = layout.links();
     nodesMap = reduceArray(nodes);
 
     function replaceNodeAndChildren(node, root, distance) {
@@ -423,7 +433,7 @@
         /*jslint nomen: true*/
         return d.children || d._children ? "end" : "start";
       })
-      .text(function (d) { return d.name; })
+      .text(function (d) { return d.data.name; })
       .style("fill-opacity", renderOptions.circleCssStyles.fillOpacity);
 
     drawLinks(links, nodes);
